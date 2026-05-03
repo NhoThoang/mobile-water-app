@@ -16,17 +16,56 @@ class ReadingProvider extends ChangeNotifier {
     required bool isOnline,
   }) async {
     if (isOnline) {
-      // Logic online đã có trong ReadingScreen, nhưng ta đưa vào đây để quản lý tập trung
+      try {
+        // 1. Upload ảnh
+        String fileName = image.path.split('/').last;
+        FormData formData = FormData.fromMap({
+          "file": await MultipartFile.fromFile(image.path, filename: fileName),
+        });
+
+        final uploadResp = await apiClient.dio.post(
+          "/uploads/meter-image/$customerId",
+          data: formData,
+        );
+
+        String imageUrl = uploadResp.data["image_url"];
+
+        // 2. Ghi chỉ số
+        await apiClient.dio.post(
+          "/readings/",
+          data: {
+            "customer_id": customerId,
+            "reading": reading,
+            "month": month,
+            "image_url": imageUrl,
+          },
+        );
+      } catch (e) {
+        // Nếu đang online mà lỗi mạng đột ngột, chuyển sang lưu offline
+        if (e is DioException) {
+          await _saveOffline(customerId, reading, month, image);
+          rethrow; // Để UI biết là đã chuyển sang offline
+        }
+        rethrow;
+      }
     } else {
-      // Lưu offline
-      await dbService.saveReadingOffline({
-        'customer_id': customerId,
-        'reading': reading,
-        'month': month,
-        'image_path': image.path,
-      });
-      notifyListeners();
+      await _saveOffline(customerId, reading, month, image);
     }
+  }
+
+  Future<void> _saveOffline(int customerId, double reading, String month, File image) async {
+    await dbService.saveReadingOffline({
+      'customer_id': customerId,
+      'reading': reading,
+      'month': month,
+      'image_path': image.path,
+    });
+    notifyListeners();
+  }
+
+  Future<int> getPendingCount() async {
+    final pending = await dbService.getPendingReadings();
+    return pending.length;
   }
 
   Future<void> syncOfflineReadings() async {
