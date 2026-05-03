@@ -3,10 +3,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/api_client.dart';
 import 'package:dio/dio.dart';
 
-enum AuthStatus { authenticated, unauthenticated, authenticating }
+enum AuthStatus { initial, authenticated, unauthenticated, authenticating }
 
 class AuthProvider extends ChangeNotifier {
-  AuthStatus _status = AuthStatus.unauthenticated;
+  AuthStatus _status = AuthStatus.initial;
   final storage = const FlutterSecureStorage();
   String? _username;
   String? _role;
@@ -53,17 +53,41 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     String? refresh = await storage.read(key: "refresh_token");
     if (refresh != null) {
-      await apiClient.dio.post("/auth/logout", data: {"refresh_token": refresh});
+      try {
+        await apiClient.dio.post("/auth/logout", data: {"refresh_token": refresh});
+      } catch (e) {
+        // Ignore logout error
+      }
     }
     await storage.deleteAll();
     _status = AuthStatus.unauthenticated;
+    _username = null;
+    _role = null;
     notifyListeners();
   }
 
   Future<void> checkAuth() async {
     String? token = await storage.read(key: "access_token");
     if (token != null) {
-      _status = AuthStatus.authenticated;
+      try {
+        final response = await apiClient.dio.get("/auth/me");
+        if (response.statusCode == 200) {
+          _role = response.data["role"];
+          _username = response.data["username"];
+          _status = AuthStatus.authenticated;
+        } else {
+          _status = AuthStatus.unauthenticated;
+        }
+      } catch (e) {
+        // Nếu lỗi 401, ApiClient sẽ tự refresh. Nếu vẫn lỗi thì coi như chưa auth
+        if (e is DioException && e.response?.statusCode == 401) {
+           // Đợi một chút để ApiClient thử refresh (nếu có cơ chế đó chạy ngầm)
+           // Hoặc đơn giản là để unauthenticated nếu refresh thất bại
+           _status = AuthStatus.unauthenticated;
+        } else {
+           _status = AuthStatus.unauthenticated;
+        }
+      }
     } else {
       _status = AuthStatus.unauthenticated;
     }

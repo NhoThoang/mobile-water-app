@@ -40,6 +40,14 @@ class WaterBillingApp extends StatelessWidget {
       ),
       home: Consumer<AuthProvider>(
         builder: (context, auth, _) {
+          if (auth.status == AuthStatus.initial) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+          
           if (auth.status == AuthStatus.authenticated) {
             // Nếu là admin hoặc worker thì vào danh sách hộ dân, ngược lại vào hóa đơn cá nhân
             if (auth.username == "admin" || auth.role == "worker") {

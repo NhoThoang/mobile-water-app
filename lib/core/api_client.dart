@@ -83,10 +83,18 @@ class ApiClient {
       if (response.statusCode == 200) {
         await storage.write(
             key: "access_token", value: response.data["access_token"]);
+        
+        // Lưu refresh_token mới nếu backend trả về (Refresh Token Rotation)
+        if (response.data["refresh_token"] != null) {
+          await storage.write(
+              key: "refresh_token", value: response.data["refresh_token"]);
+        }
         return true;
       }
     } catch (e) {
-      // Refresh token cũng hết hạn -> Yêu cầu logout
+      AppLogger.e("❌ Refresh token failed: $e");
+      // Refresh token cũng hết hạn hoặc lỗi -> Xóa hết để yêu cầu login lại
+      await storage.deleteAll();
     }
     return false;
   }
