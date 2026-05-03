@@ -17,6 +17,8 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'android' }}
 
     steps:
@@ -27,13 +29,14 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
           channel: 'stable'
+          flutter-version: 'any'
+          cache: true
 
       - name: Get Flutter dependencies
         run: flutter pub get
@@ -50,6 +53,8 @@ jobs:
   build-ios:
     name: Build iOS App
     runs-on: macos-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     if: ${{ github.event.inputs.build_target == 'both' || github.event.inputs.build_target == 'ios' }}
 
     steps:
@@ -59,8 +64,9 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
           channel: 'stable'
+          flutter-version: 'any'
+          cache: true
 
       - name: Get Flutter dependencies
         run: flutter pub get
